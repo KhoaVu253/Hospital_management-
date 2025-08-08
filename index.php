@@ -20,7 +20,7 @@ include 'includes/header.php';
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
-            <div class="hero-section text-center py-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; min-height: 60vh; display: flex; align-items: center;">
+            <div class="hero-section text-center py-5">
                 <div class="container">
                     <h1 class="display-4 mb-4">
                         <i class="fas fa-hospital me-3"></i>
