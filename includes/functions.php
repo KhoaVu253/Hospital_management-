@@ -84,6 +84,11 @@ function formatDateTime($datetime) {
     return date('d/m/Y H:i', strtotime($datetime));
 }
 
+// Format giờ
+function formatTime($datetime) {
+    return date('H:i', strtotime($datetime));
+}
+
 // Format tiền tệ
 function formatCurrency($amount) {
     return number_format($amount, 0, ',', '.') . ' VNĐ';
@@ -195,5 +200,48 @@ function checkAppointmentConflict($doctorId, $appointmentDate, $excludeId = null
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     return $result['count'] > 0;
+}
+
+// Lấy đường dẫn cơ sở
+function getBaseUrl() {
+    $currentPath = $_SERVER['PHP_SELF'];
+    $pathParts = explode('/', $currentPath);
+    
+    // Loại bỏ file hiện tại
+    array_pop($pathParts);
+    
+    // Đếm số thư mục cần quay lại
+    $backCount = 0;
+    foreach ($pathParts as $part) {
+        if ($part && $part != 'Hospital_management-') {
+            $backCount++;
+        }
+    }
+    
+    $baseUrl = '';
+    for ($i = 0; $i < $backCount; $i++) {
+        $baseUrl .= '../';
+    }
+    
+    return $baseUrl;
+}
+
+// Lấy đường dẫn logout
+function getLogoutUrl() {
+    $currentPath = $_SERVER['PHP_SELF'];
+    $pathParts = explode('/', $currentPath);
+    
+    // Kiểm tra xem đang ở thư mục nào
+    if (in_array('admin', $pathParts)) {
+        return 'logout.php';
+    } elseif (in_array('doctor', $pathParts)) {
+        return 'logout.php';
+    } elseif (in_array('patient', $pathParts)) {
+        return 'logout.php';
+    } elseif (in_array('auth', $pathParts)) {
+        return 'logout.php';
+    } else {
+        return 'auth/logout.php';
+    }
 }
 ?> 

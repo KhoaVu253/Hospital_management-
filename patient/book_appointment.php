@@ -30,15 +30,42 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             if (checkAppointmentConflict($doctor_id, $appointment_datetime)) {
                 $error = 'Bác sĩ đã có lịch khám vào thời gian này! Vui lòng chọn thời gian khác.';
             } else {
-                // Tạo lịch khám mới
-                $stmt = $conn->prepare("INSERT INTO appointments (patient_id, doctor_id, appointment_date, symptoms, notes, status) VALUES (?, ?, ?, ?, ?, 'pending')");
-                $stmt->bind_param("iisss", $_SESSION['user_id'], $doctor_id, $appointment_datetime, $symptoms, $notes);
+                // Bắt đầu transaction
+                $conn->begin_transaction();
                 
-                if ($stmt->execute()) {
-                    showMessage('Đặt lịch khám thành công! Vui lòng chờ xác nhận từ bác sĩ.', 'success');
-                    header("Location: my_appointments.php");
-                    exit();
-                } else {
+                try {
+                    // Tạo lịch khám mới
+                    $stmt = $conn->prepare("INSERT INTO appointments (patient_id, doctor_id, appointment_date, symptoms, notes, status) VALUES (?, ?, ?, ?, ?, 'pending')");
+                    $stmt->bind_param("iisss", $_SESSION['user_id'], $doctor_id, $appointment_datetime, $symptoms, $notes);
+                    
+                    if ($stmt->execute()) {
+                        $appointment_id = $conn->insert_id;
+                        
+                        // Lấy phí khám bệnh của bác sĩ
+                        $fee_stmt = $conn->prepare("SELECT consultation_fee FROM doctors WHERE id = ?");
+                        $fee_stmt->bind_param("i", $doctor_id);
+                        $fee_stmt->execute();
+                        $fee_result = $fee_stmt->get_result();
+                        $doctor_data = $fee_result->fetch_assoc();
+                        $consultation_fee = $doctor_data['consultation_fee'];
+                        
+                        // Tạo hóa đơn tự động
+                        $bill_stmt = $conn->prepare("INSERT INTO bills (appointment_id, consultation_fee, total_amount, status) VALUES (?, ?, ?, 'unpaid')");
+                        $bill_stmt->bind_param("idd", $appointment_id, $consultation_fee, $consultation_fee);
+                        
+                        if ($bill_stmt->execute()) {
+                            $conn->commit();
+                            showMessage('Đặt lịch khám thành công! Hóa đơn đã được tạo với phí khám: ' . number_format($consultation_fee) . ' VNĐ', 'success');
+                            header("Location: my_appointments.php");
+                            exit();
+                        } else {
+                            throw new Exception('Lỗi tạo hóa đơn');
+                        }
+                    } else {
+                        throw new Exception('Lỗi tạo lịch khám');
+                    }
+                } catch (Exception $e) {
+                    $conn->rollback();
                     $error = 'Có lỗi xảy ra! Vui lòng thử lại.';
                 }
             }
@@ -47,56 +74,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 }
 
 include '../includes/header.php';
+include '../includes/top_navbar.php';
 ?>
 
 <div class="container-fluid">
     <div class="row">
-        <!-- Sidebar -->
-        <div class="col-md-3 col-lg-2 d-md-block sidebar collapse">
-            <div class="position-sticky pt-3">
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.php">
-                            <i class="fas fa-tachometer-alt me-2"></i>
-                            Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="book_appointment.php">
-                            <i class="fas fa-calendar-plus me-2"></i>
-                            Đặt lịch khám
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="my_appointments.php">
-                            <i class="fas fa-calendar-check me-2"></i>
-                            Lịch khám của tôi
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="medical_history.php">
-                            <i class="fas fa-history me-2"></i>
-                            Lịch sử khám bệnh
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="my_bills.php">
-                            <i class="fas fa-file-invoice-dollar me-2"></i>
-                            Hóa đơn của tôi
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="profile.php">
-                            <i class="fas fa-user me-2"></i>
-                            Hồ sơ cá nhân
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
         <!-- Main content -->
-        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+        <div class="col-12 main-content">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">
                     <i class="fas fa-calendar-plus me-2"></i>
@@ -148,8 +132,10 @@ include '../includes/header.php';
                                                 while ($row = $result->fetch_assoc()):
                                                 ?>
                                                 <option value="<?php echo $row['id']; ?>" 
+                                                        data-fee="<?php echo $row['consultation_fee']; ?>"
                                                         <?php echo (isset($_POST['doctor_id']) && $_POST['doctor_id'] == $row['id']) ? 'selected' : ''; ?>>
-                                                    <?php echo htmlspecialchars($row['full_name']); ?> - <?php echo htmlspecialchars($row['specialty']); ?>
+                                                    <?php echo htmlspecialchars($row['full_name']); ?> - <?php echo htmlspecialchars($row['specialty']); ?> 
+                                                    (Phí khám: <?php echo number_format($row['consultation_fee']); ?> VNĐ)
                                                 </option>
                                                 <?php endwhile; ?>
                                             </select>
@@ -200,6 +186,14 @@ include '../includes/header.php';
                                     </label>
                                     <textarea class="form-control" id="notes" name="notes" rows="2" 
                                               placeholder="Ghi chú thêm nếu cần..."><?php echo isset($_POST['notes']) ? htmlspecialchars($_POST['notes']) : ''; ?></textarea>
+                                </div>
+
+                                <div class="mb-3" id="consultation_fee_display" style="display: none;">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-money-bill-wave me-2"></i>
+                                        <strong>Phí khám bệnh:</strong> 
+                                        <span id="consultation_fee_text"></span>
+                                    </div>
                                 </div>
 
                                 <div class="d-grid">
@@ -314,9 +308,32 @@ include '../includes/header.php';
 
 <script>
 // Kiểm tra lịch khám trùng khi thay đổi bác sĩ hoặc thời gian
-document.getElementById('doctor_id').addEventListener('change', checkAvailability);
+document.getElementById('doctor_id').addEventListener('change', function() {
+    checkAvailability();
+    updateConsultationFee();
+});
 document.getElementById('appointment_date').addEventListener('change', checkAvailability);
 document.getElementById('appointment_time').addEventListener('change', checkAvailability);
+
+// Hiển thị phí khám bệnh khi chọn bác sĩ
+function updateConsultationFee() {
+    const doctorSelect = document.getElementById('doctor_id');
+    const selectedOption = doctorSelect.options[doctorSelect.selectedIndex];
+    const feeDisplay = document.getElementById('consultation_fee_display');
+    const feeText = document.getElementById('consultation_fee_text');
+    
+    if (selectedOption.value) {
+        const fee = selectedOption.getAttribute('data-fee');
+        if (fee && feeDisplay && feeText) {
+            feeText.textContent = number_format(fee) + ' VNĐ';
+            feeDisplay.style.display = 'block';
+        }
+    } else {
+        if (feeDisplay) {
+            feeDisplay.style.display = 'none';
+        }
+    }
+}
 
 function checkAvailability() {
     const doctorId = document.getElementById('doctor_id').value;
@@ -343,6 +360,15 @@ function checkAvailability() {
         });
     }
 }
+
+function number_format(number) {
+    return new Intl.NumberFormat('vi-VN').format(number);
+}
+
+// Khởi tạo hiển thị phí khám khi trang load
+document.addEventListener('DOMContentLoaded', function() {
+    updateConsultationFee();
+});
 </script>
 
 <?php include '../includes/footer.php'; ?> 

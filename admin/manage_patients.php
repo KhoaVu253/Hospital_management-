@@ -9,77 +9,26 @@ $message = getMessage();
 
 // Xử lý xóa bệnh nhân
 if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
-    $patient_id = $_GET['delete'];
-    if (confirmDelete('Bạn có chắc chắn muốn xóa bệnh nhân này?')) {
-        $stmt = $conn->prepare("DELETE FROM users WHERE id = ? AND role = 'patient'");
-        $stmt->bind_param("i", $patient_id);
-        if ($stmt->execute()) {
-            showMessage('Xóa bệnh nhân thành công!', 'success');
-        } else {
-            showMessage('Có lỗi xảy ra khi xóa bệnh nhân!', 'danger');
-        }
-        header("Location: manage_patients.php");
-        exit();
+    $patient_id = (int)$_GET['delete'];
+    $stmt = $conn->prepare("DELETE FROM users WHERE id = ? AND role = 'patient'");
+    $stmt->bind_param("i", $patient_id);
+    if ($stmt->execute()) {
+        showMessage('Xóa bệnh nhân thành công!', 'success');
+    } else {
+        showMessage('Có lỗi xảy ra khi xóa bệnh nhân!', 'danger');
     }
+    header("Location: manage_patients.php");
+    exit();
 }
 
 include '../includes/header.php';
+include '../includes/top_navbar.php';
 ?>
 
 <div class="container-fluid">
     <div class="row">
-        <!-- Sidebar -->
-        <div class="col-md-3 col-lg-2 d-md-block sidebar collapse">
-            <div class="position-sticky pt-3">
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.php">
-                            <i class="fas fa-tachometer-alt me-2"></i>
-                            Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="manage_patients.php">
-                            <i class="fas fa-users me-2"></i>
-                            Quản lý Bệnh nhân
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="manage_doctors.php">
-                            <i class="fas fa-user-md me-2"></i>
-                            Quản lý Bác sĩ
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="manage_appointments.php">
-                            <i class="fas fa-calendar-check me-2"></i>
-                            Quản lý Lịch khám
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="manage_bills.php">
-                            <i class="fas fa-file-invoice-dollar me-2"></i>
-                            Quản lý Hóa đơn
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="manage_medicines.php">
-                            <i class="fas fa-pills me-2"></i>
-                            Quản lý Thuốc
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="reports.php">
-                            <i class="fas fa-chart-bar me-2"></i>
-                            Báo cáo
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
         <!-- Main content -->
-        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+        <div class="col-12 main-content">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">
                     <i class="fas fa-users me-2"></i>

@@ -74,8 +74,9 @@ include '../includes/header.php';
             <div class="card shadow">
                 <div class="card-body p-5">
                     <div class="text-center mb-4">
-                        <i class="fas fa-user-plus fa-3x text-primary mb-3"></i>
-                        <h3 class="card-title">Đăng ký tài khoản</h3>
+                        <i class="fas fa-hospital fa-3x text-primary mb-3"></i>
+                        <h3 class="card-title">DUCKHOA Hospital</h3>
+                        <h5 class="text-muted">Đăng ký tài khoản</h5>
                         <p class="text-muted">Tạo tài khoản để sử dụng dịch vụ</p>
                     </div>
                     

@@ -34,32 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $appointments = getDoctorAppointments($doctor_id);
 
 include '../includes/header.php';
+include '../includes/top_navbar.php';
 ?>
 
 <div class="container-fluid">
     <div class="row">
-        <!-- Sidebar -->
-        <div class="col-md-3 col-lg-2 d-md-block sidebar collapse">
-            <div class="position-sticky pt-3">
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.php">
-                            <i class="fas fa-tachometer-alt me-2"></i>
-                            Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="appointments.php">
-                            <i class="fas fa-calendar-check me-2"></i>
-                            Lịch khám
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
         <!-- Main content -->
-        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+        <div class="col-12 main-content">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">
                     <i class="fas fa-calendar-check me-2"></i>

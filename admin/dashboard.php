@@ -5,246 +5,350 @@ require_once '../includes/functions.php';
 // Kiểm tra quyền admin
 requireAdmin();
 
+// Thống kê tổng quan
+$total_patients = $conn->query("SELECT COUNT(*) as count FROM users WHERE role = 'patient'")->fetch_assoc()['count'];
+$total_doctors = $conn->query("SELECT COUNT(*) as count FROM doctors WHERE status = 'active'")->fetch_assoc()['count'];
+$today_appointments = $conn->query("SELECT COUNT(*) as count FROM appointments WHERE DATE(appointment_date) = CURDATE()")->fetch_assoc()['count'];
+$monthly_revenue = $conn->query("SELECT SUM(total_amount) as total FROM bills WHERE MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE()) AND status = 'paid'")->fetch_assoc()['total'] ?? 0;
+
+// Lịch khám gần đây
+$recent_appointments = $conn->query("SELECT a.*, p.full_name as patient_name, d.specialty, doc.full_name as doctor_name 
+                                    FROM appointments a 
+                                    JOIN users p ON a.patient_id = p.id 
+                                    JOIN doctors d ON a.doctor_id = d.id 
+                                    JOIN users doc ON d.user_id = doc.id 
+                                    ORDER BY a.appointment_date DESC 
+                                    LIMIT 8");
+
+// Thống kê theo chuyên khoa
+$specialty_stats = $conn->query("SELECT d.specialty, COUNT(*) as count 
+                                FROM appointments a 
+                                JOIN doctors d ON a.doctor_id = d.id 
+                                WHERE MONTH(a.appointment_date) = MONTH(CURDATE()) 
+                                GROUP BY d.specialty 
+                                ORDER BY count DESC 
+                                LIMIT 5");
+
 include '../includes/header.php';
 ?>
 
+<?php include '../includes/top_navbar.php'; ?>
+
 <div class="container-fluid">
     <div class="row">
-        <!-- Sidebar -->
-        <div class="col-md-3 col-lg-2 d-md-block sidebar collapse">
-            <div class="position-sticky pt-3">
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="dashboard.php">
-                            <i class="fas fa-tachometer-alt me-2"></i>
-                            Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="manage_patients.php">
-                            <i class="fas fa-users me-2"></i>
-                            Quản lý Bệnh nhân
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="manage_doctors.php">
-                            <i class="fas fa-user-md me-2"></i>
-                            Quản lý Bác sĩ
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="manage_appointments.php">
-                            <i class="fas fa-calendar-check me-2"></i>
-                            Quản lý Lịch khám
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="manage_bills.php">
-                            <i class="fas fa-file-invoice-dollar me-2"></i>
-                            Quản lý Hóa đơn
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="manage_medicines.php">
-                            <i class="fas fa-pills me-2"></i>
-                            Quản lý Thuốc
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="reports.php">
-                            <i class="fas fa-chart-bar me-2"></i>
-                            Báo cáo
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
         <!-- Main content -->
-        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">
-                    <i class="fas fa-tachometer-alt me-2"></i>
-                    Dashboard
-                </h1>
-                <div class="btn-toolbar mb-2 mb-md-0">
-                    <div class="btn-group me-2">
-                        <button type="button" class="btn btn-sm btn-outline-secondary">Xuất báo cáo</button>
+        <div class="col-12 main-content">
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="d-flex justify-content-between align-items-center flex-wrap">
+                    <div class="mb-3 mb-md-0">
+                        <h1 class="mb-2">
+                            <i class="fas fa-tachometer-alt me-2 text-primary"></i>
+                            Dashboard Quản lý
+                        </h1>
+                        <p class="mb-0">
+                            <i class="fas fa-chart-line me-2 text-muted"></i>
+                            Tổng quan hệ thống bệnh viện
+                        </p>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-outline-primary">
+                            <i class="fas fa-download me-2"></i>Xuất báo cáo
+                        </button>
+                        <div class="dropdown">
+                            <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-plus me-2"></i>Thêm mới
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="add_patient.php">
+                                    <i class="fas fa-user me-2"></i>Thêm bệnh nhân
+                                </a></li>
+                                <li><a class="dropdown-item" href="add_doctor.php">
+                                    <i class="fas fa-user-md me-2"></i>Thêm bác sĩ
+                                </a></li>
+                                <li><a class="dropdown-item" href="add_medicine.php">
+                                    <i class="fas fa-pills me-2"></i>Thêm thuốc
+                                </a></li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Thống kê tổng quan -->
-            <div class="row mb-4">
+            <div class="row mb-5">
                 <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-primary shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                        Tổng số bệnh nhân
-                                    </div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                        <?php
-                                        $result = $conn->query("SELECT COUNT(*) as count FROM users WHERE role = 'patient'");
-                                        $data = $result->fetch_assoc();
-                                        echo $data['count'];
-                                        ?>
-                                    </div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-users fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="stats-card">
+                        <i class="fas fa-users text-primary"></i>
+                        <h4 class="text-primary"><?php echo number_format($total_patients); ?></h4>
+                        <p class="text-muted mb-0">Tổng số bệnh nhân</p>
+                        <small class="text-success">
+                            <i class="fas fa-arrow-up me-1"></i>
+                            +12% so với tháng trước
+                        </small>
                     </div>
                 </div>
 
                 <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-success shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                        Tổng số bác sĩ
-                                    </div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                        <?php
-                                        $result = $conn->query("SELECT COUNT(*) as count FROM doctors WHERE status = 'active'");
-                                        $data = $result->fetch_assoc();
-                                        echo $data['count'];
-                                        ?>
-                                    </div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-user-md fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="stats-card">
+                        <i class="fas fa-user-md text-success"></i>
+                        <h4 class="text-success"><?php echo number_format($total_doctors); ?></h4>
+                        <p class="text-muted mb-0">Tổng số bác sĩ</p>
+                        <small class="text-info">
+                            <i class="fas fa-check-circle me-1"></i>
+                            Đang hoạt động
+                        </small>
                     </div>
                 </div>
 
                 <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-info shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                        Lịch khám hôm nay
-                                    </div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                        <?php
-                                        $result = $conn->query("SELECT COUNT(*) as count FROM appointments WHERE DATE(appointment_date) = CURDATE()");
-                                        $data = $result->fetch_assoc();
-                                        echo $data['count'];
-                                        ?>
-                                    </div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-calendar-day fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="stats-card">
+                        <i class="fas fa-calendar-day text-warning"></i>
+                        <h4 class="text-warning"><?php echo number_format($today_appointments); ?></h4>
+                        <p class="text-muted mb-0">Lịch khám hôm nay</p>
+                        <small class="text-primary">
+                            <i class="fas fa-clock me-1"></i>
+                            Cập nhật realtime
+                        </small>
                     </div>
                 </div>
 
                 <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-warning shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                        Doanh thu tháng
-                                    </div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                        <?php
-                                        $result = $conn->query("SELECT SUM(total_amount) as total FROM bills WHERE MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE()) AND status = 'paid'");
-                                        $data = $result->fetch_assoc();
-                                        echo formatCurrency($data['total'] ?? 0);
-                                        ?>
-                                    </div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="stats-card">
+                        <i class="fas fa-dollar-sign text-info"></i>
+                        <h4 class="text-info"><?php echo formatCurrency($monthly_revenue); ?></h4>
+                        <p class="text-muted mb-0">Doanh thu tháng</p>
+                        <small class="text-success">
+                            <i class="fas fa-trending-up me-1"></i>
+                            +8.5% so với tháng trước
+                        </small>
                     </div>
                 </div>
             </div>
 
-            <!-- Lịch khám gần đây -->
+            <!-- Lịch khám gần đây và Thống kê -->
             <div class="row">
-                <div class="col-12">
-                    <div class="card shadow mb-4">
-                        <div class="card-header py-3">
-                            <h6 class="m-0 font-weight-bold text-primary">
-                                <i class="fas fa-calendar-check me-2"></i>
+                <!-- Lịch khám gần đây -->
+                <div class="col-xl-8 col-lg-7">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-calendar-check me-2 text-primary"></i>
                                 Lịch khám gần đây
-                            </h6>
+                            </h5>
+                            <span class="badge bg-primary"><?php echo $recent_appointments->num_rows; ?> lịch khám</span>
                         </div>
                         <div class="card-body">
                             <div class="table-responsive">
-                                <table class="table table-bordered" width="100%" cellspacing="0">
+                                <table class="table table-hover align-middle">
                                     <thead>
                                         <tr>
-                                            <th>Bệnh nhân</th>
-                                            <th>Bác sĩ</th>
-                                            <th>Ngày khám</th>
-                                            <th>Trạng thái</th>
-                                            <th>Thao tác</th>
+                                            <th class="border-0">
+                                                <i class="fas fa-user me-2"></i>Bệnh nhân
+                                            </th>
+                                            <th class="border-0">
+                                                <i class="fas fa-user-md me-2"></i>Bác sĩ
+                                            </th>
+                                            <th class="border-0">
+                                                <i class="fas fa-calendar me-2"></i>Ngày khám
+                                            </th>
+                                            <th class="border-0">
+                                                <i class="fas fa-info-circle me-2"></i>Trạng thái
+                                            </th>
+                                            <th class="border-0">
+                                                <i class="fas fa-cogs me-2"></i>Thao tác
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php
-                                        $sql = "SELECT a.*, p.full_name as patient_name, d.specialty, doc.full_name as doctor_name 
-                                                FROM appointments a 
-                                                JOIN users p ON a.patient_id = p.id 
-                                                JOIN doctors d ON a.doctor_id = d.id 
-                                                JOIN users doc ON d.user_id = doc.id 
-                                                ORDER BY a.appointment_date DESC 
-                                                LIMIT 10";
-                                        $result = $conn->query($sql);
-                                        while ($row = $result->fetch_assoc()):
-                                        ?>
-                                        <tr>
-                                            <td><?php echo htmlspecialchars($row['patient_name']); ?></td>
-                                            <td><?php echo htmlspecialchars($row['doctor_name']); ?> (<?php echo htmlspecialchars($row['specialty']); ?>)</td>
-                                            <td><?php echo formatDateTime($row['appointment_date']); ?></td>
-                                            <td>
-                                                <?php
-                                                $status_class = '';
-                                                $status_text = '';
-                                                switch($row['status']) {
-                                                    case 'pending':
-                                                        $status_class = 'badge bg-warning';
-                                                        $status_text = 'Chờ xác nhận';
-                                                        break;
-                                                    case 'confirmed':
-                                                        $status_class = 'badge bg-info';
-                                                        $status_text = 'Đã xác nhận';
-                                                        break;
-                                                    case 'completed':
-                                                        $status_class = 'badge bg-success';
-                                                        $status_text = 'Hoàn thành';
-                                                        break;
-                                                    case 'cancelled':
-                                                        $status_class = 'badge bg-danger';
-                                                        $status_text = 'Đã hủy';
-                                                        break;
-                                                }
-                                                ?>
-                                                <span class="<?php echo $status_class; ?>"><?php echo $status_text; ?></span>
-                                            </td>
-                                            <td>
-                                                <a href="view_appointment.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-info">
-                                                    <i class="fas fa-eye"></i>
-                                                </a>
-                                            </td>
-                                        </tr>
-                                        <?php endwhile; ?>
+                                        <?php if ($recent_appointments->num_rows > 0): ?>
+                                            <?php while ($row = $recent_appointments->fetch_assoc()): ?>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="avatar-sm bg-primary rounded-circle d-flex align-items-center justify-content-center me-3">
+                                                            <i class="fas fa-user text-white"></i>
+                                                        </div>
+                                                        <div>
+                                                            <h6 class="mb-0"><?php echo htmlspecialchars($row['patient_name']); ?></h6>
+                                                            <small class="text-muted">Bệnh nhân</small>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="avatar-sm bg-success rounded-circle d-flex align-items-center justify-content-center me-3">
+                                                            <i class="fas fa-user-md text-white"></i>
+                                                        </div>
+                                                        <div>
+                                                            <h6 class="mb-0"><?php echo htmlspecialchars($row['doctor_name']); ?></h6>
+                                                            <small class="text-muted"><?php echo htmlspecialchars($row['specialty']); ?></small>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div>
+                                                        <span class="fw-bold"><?php echo date('d/m/Y', strtotime($row['appointment_date'])); ?></span>
+                                                        <br>
+                                                        <small class="text-muted"><?php echo date('H:i', strtotime($row['appointment_date'])); ?></small>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <?php
+                                                    $status_class = '';
+                                                    $status_text = '';
+                                                    switch($row['status']) {
+                                                        case 'pending':
+                                                            $status_class = 'badge bg-warning';
+                                                            $status_text = 'Chờ xác nhận';
+                                                            break;
+                                                        case 'confirmed':
+                                                            $status_class = 'badge bg-info';
+                                                            $status_text = 'Đã xác nhận';
+                                                            break;
+                                                        case 'completed':
+                                                            $status_class = 'badge bg-success';
+                                                            $status_text = 'Hoàn thành';
+                                                            break;
+                                                        case 'cancelled':
+                                                            $status_class = 'badge bg-danger';
+                                                            $status_text = 'Đã hủy';
+                                                            break;
+                                                    }
+                                                    ?>
+                                                    <span class="<?php echo $status_class; ?>"><?php echo $status_text; ?></span>
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group" role="group">
+                                                        <a href="view_appointment.php?id=<?php echo $row['id']; ?>"
+                                                           class="btn btn-sm btn-outline-info"
+                                                           data-bs-toggle="tooltip"
+                                                           title="Xem chi tiết">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                        <a href="edit_appointment.php?id=<?php echo $row['id']; ?>"
+                                                           class="btn btn-sm btn-outline-warning"
+                                                           data-bs-toggle="tooltip"
+                                                           title="Chỉnh sửa">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <?php endwhile; ?>
+                                        <?php else: ?>
+                                            <tr>
+                                                <td colspan="5" class="text-center py-5">
+                                                    <div class="empty-state">
+                                                        <i class="fas fa-calendar-times text-muted mb-3" style="font-size: 3rem;"></i>
+                                                        <h5 class="text-muted">Chưa có lịch khám</h5>
+                                                        <p class="text-muted mb-3">Hệ thống chưa có lịch khám nào được đặt.</p>
+                                                        <a href="manage_appointments.php" class="btn btn-primary">
+                                                            <i class="fas fa-plus me-2"></i>Tạo lịch khám mới
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        <?php endif; ?>
                                     </tbody>
                                 </table>
+                            </div>
+                            <?php if ($recent_appointments->num_rows > 0): ?>
+                            <div class="text-center mt-3">
+                                <a href="manage_appointments.php" class="btn btn-outline-primary">
+                                    <i class="fas fa-list me-2"></i>Xem tất cả lịch khám
+                                </a>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thống kê chuyên khoa -->
+                <div class="col-xl-4 col-lg-5">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-pie me-2 text-primary"></i>
+                                Thống kê chuyên khoa
+                            </h5>
+                            <span class="badge bg-info">Tháng này</span>
+                        </div>
+                        <div class="card-body">
+                            <?php if ($specialty_stats->num_rows > 0): ?>
+                                <div class="specialty-stats">
+                                    <?php
+                                    $colors = ['primary', 'success', 'warning', 'info', 'danger'];
+                                    $index = 0;
+                                    while ($specialty = $specialty_stats->fetch_assoc()):
+                                        $color = $colors[$index % count($colors)];
+                                        $index++;
+                                    ?>
+                                    <div class="d-flex justify-content-between align-items-center mb-3 p-3 rounded border-start border-4 border-<?php echo $color; ?>" style="background: var(--gray-50);">
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-sm bg-<?php echo $color; ?> rounded-circle d-flex align-items-center justify-content-center me-3">
+                                                <i class="fas fa-stethoscope text-white"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-0"><?php echo htmlspecialchars($specialty['specialty']); ?></h6>
+                                                <small class="text-muted">Chuyên khoa</small>
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <h5 class="mb-0 text-<?php echo $color; ?>"><?php echo $specialty['count']; ?></h5>
+                                            <small class="text-muted">lịch khám</small>
+                                        </div>
+                                    </div>
+                                    <?php endwhile; ?>
+                                </div>
+                            <?php else: ?>
+                                <div class="empty-state">
+                                    <i class="fas fa-chart-bar"></i>
+                                    <h5>Chưa có dữ liệu</h5>
+                                    <p>Chưa có thống kê theo chuyên khoa.</p>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-bolt me-2 text-warning"></i>
+                                Thao tác nhanh
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-3">
+                                <a href="manage_appointments.php" class="btn btn-outline-primary d-flex align-items-center justify-content-start">
+                                    <i class="fas fa-calendar-check me-3"></i>
+                                    <div class="text-start">
+                                        <div class="fw-bold">Quản lý lịch khám</div>
+                                        <small class="text-muted">Xem và quản lý tất cả lịch khám</small>
+                                    </div>
+                                </a>
+                                <a href="manage_doctors.php" class="btn btn-outline-success d-flex align-items-center justify-content-start">
+                                    <i class="fas fa-user-md me-3"></i>
+                                    <div class="text-start">
+                                        <div class="fw-bold">Quản lý bác sĩ</div>
+                                        <small class="text-muted">Thêm, sửa thông tin bác sĩ</small>
+                                    </div>
+                                </a>
+                                <a href="manage_patients.php" class="btn btn-outline-info d-flex align-items-center justify-content-start">
+                                    <i class="fas fa-users me-3"></i>
+                                    <div class="text-start">
+                                        <div class="fw-bold">Quản lý bệnh nhân</div>
+                                        <small class="text-muted">Quản lý hồ sơ bệnh nhân</small>
+                                    </div>
+                                </a>
+                                <a href="manage_bills.php" class="btn btn-outline-warning d-flex align-items-center justify-content-start">
+                                    <i class="fas fa-file-invoice-dollar me-3"></i>
+                                    <div class="text-start">
+                                        <div class="fw-bold">Quản lý hóa đơn</div>
+                                        <small class="text-muted">Theo dõi thanh toán</small>
+                                    </div>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -252,31 +356,17 @@ include '../includes/header.php';
             </div>
 
             <!-- Biểu đồ thống kê -->
-            <div class="row">
-                <div class="col-xl-8 col-lg-7">
-                    <div class="card shadow mb-4">
-                        <div class="card-header py-3">
-                            <h6 class="m-0 font-weight-bold text-primary">
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card shadow">
+                        <div class="card-header">
+                            <h6 class="m-0 font-weight-bold">
                                 <i class="fas fa-chart-area me-2"></i>
                                 Thống kê lịch khám theo tháng
                             </h6>
                         </div>
                         <div class="card-body">
                             <canvas id="appointmentChart" width="100%" height="40"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-4 col-lg-5">
-                    <div class="card shadow mb-4">
-                        <div class="card-header py-3">
-                            <h6 class="m-0 font-weight-bold text-primary">
-                                <i class="fas fa-chart-pie me-2"></i>
-                                Phân bố chuyên khoa
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="specialtyChart" width="100%" height="40"></canvas>
                         </div>
                     </div>
                 </div>
@@ -287,6 +377,22 @@ include '../includes/header.php';
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Add fade-in animation to cards
+    const cards = document.querySelectorAll('.card, .stats-card');
+    cards.forEach((card, index) => {
+        card.style.animationDelay = `${index * 0.1}s`;
+        card.classList.add('fade-in');
+    });
+});
+</script>
+<script>
 // Biểu đồ lịch khám theo tháng
 const appointmentCtx = document.getElementById('appointmentChart').getContext('2d');
 const appointmentChart = new Chart(appointmentCtx, {
@@ -296,39 +402,36 @@ const appointmentChart = new Chart(appointmentCtx, {
         datasets: [{
             label: 'Số lịch khám',
             data: [12, 19, 3, 5, 2, 3, 7, 8, 9, 10, 11, 12],
-            borderColor: 'rgb(75, 192, 192)',
-            tension: 0.1
+            borderColor: 'rgb(102, 126, 234)',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            tension: 0.4,
+            fill: true
         }]
     },
     options: {
         responsive: true,
+        plugins: {
+            legend: {
+                position: 'top',
+            },
+            title: {
+                display: true,
+                text: 'Thống kê lịch khám theo tháng'
+            }
+        },
         scales: {
             y: {
-                beginAtZero: true
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(0,0,0,0.1)'
+                }
+            },
+            x: {
+                grid: {
+                    color: 'rgba(0,0,0,0.1)'
+                }
             }
         }
-    }
-});
-
-// Biểu đồ phân bố chuyên khoa
-const specialtyCtx = document.getElementById('specialtyChart').getContext('2d');
-const specialtyChart = new Chart(specialtyCtx, {
-    type: 'doughnut',
-    data: {
-        labels: ['Tim mạch', 'Nhi khoa', 'Da liễu', 'Thần kinh', 'Tiêu hóa'],
-        datasets: [{
-            data: [30, 25, 15, 20, 10],
-            backgroundColor: [
-                '#FF6384',
-                '#36A2EB',
-                '#FFCE56',
-                '#4BC0C0',
-                '#9966FF'
-            ]
-        }]
-    },
-    options: {
-        responsive: true
     }
 });
 </script>

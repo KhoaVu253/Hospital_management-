@@ -26,6 +26,7 @@ CREATE TABLE doctors (
     experience_years INT,
     education TEXT,
     license_number VARCHAR(50),
+    consultation_fee DECIMAL(10,2) DEFAULT 0.00,
     status ENUM('active', 'inactive') DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -98,10 +99,10 @@ INSERT INTO users (username, password, email, role, full_name, phone, gender, da
 ('doctor1', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'doctor1@hospital.com', 'doctor', 'Bác sĩ Nguyễn Văn A', '0987654321', 'male', '1980-01-15'),
 ('doctor2', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'doctor2@hospital.com', 'doctor', 'Bác sĩ Trần Thị B', '0987654322', 'female', '1985-03-20');
 
--- Thêm thông tin bác sĩ
-INSERT INTO doctors (user_id, specialty, experience_years, education, license_number) VALUES 
-(2, 'Tim mạch', 15, 'Đại học Y Hà Nội', 'BS001'),
-(3, 'Nhi khoa', 12, 'Đại học Y Dược TP.HCM', 'BS002');
+-- Thêm thông tin bác sĩ với phí khám bệnh
+INSERT INTO doctors (user_id, specialty, experience_years, education, license_number, consultation_fee) VALUES 
+(2, 'Nội tổng quát', 15, 'Đại học Y Hà Nội', 'BS001', 200000.00),
+(3, 'Ngoại tổng quát', 12, 'Đại học Y TP.HCM', 'BS002', 250000.00);
 
 -- Tạo một số bệnh nhân mẫu
 INSERT INTO users (username, password, email, role, full_name, phone, gender, date_of_birth, address) VALUES 
